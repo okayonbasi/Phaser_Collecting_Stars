@@ -1,0 +1,509 @@
+<!doctype html>
+<html lang="en">
+
+<head>
+    <meta charset="UTF-8" />
+    <title>Making your first Phaser 3 Game - Part 10</title>
+    <script src="//cdn.jsdelivr.net/npm/phaser@3.11.0/dist/phaser.js"></script>
+    <style type="text/css">
+        body {
+            margin: 0;
+        }
+    </style>
+</head>
+
+<body>
+
+    <script type="text/javascript">
+
+        var config = {
+            type: Phaser.AUTO,
+            width: 800,
+            height: 600,
+            physics: {
+                default: 'arcade',
+                arcade: {
+                    gravity: { y: 350 },
+                    debug: false
+                }
+            },
+            scene: {
+                preload: preload,
+                create: create,
+                update: update
+            }
+        };
+
+        var firstPlayer;
+        var stars;
+        var cursors;
+        var firstPlayerScore = 0;
+        var firstPlayerScoreText;
+        var firstPlayerLevel = 0;
+        var firstPlayerLevelText;
+        var firstPlayerHealthText;
+        var firstPlayerHealth = 5;
+
+        var secondPlayer;
+        var stars2;
+        var secondPlayerCursors;
+        var secondPlayerScore = 0;
+        var secondPlayerScoreText;
+        var secondPlayerLevel = 0;
+        var secondPlayerLevelText;
+        var secondPlayerHealthText;
+        var secondPlayerHealth = 5;
+
+
+        var gameOver = false;
+        var bombs;
+        var bombs2;
+        var secondBombs;
+        var platforms;
+
+        var staticTramps;
+
+        var button;
+        var coinSound1;
+        var coinSound2;
+        var bombSound1;
+        var bombSound2;
+        var backgroundSound;
+        var soundText;
+        var scareSound;
+
+
+        var game = new Phaser.Game(config);
+
+        function preload() {
+            this.load.image('background', 'assets/img/background.png');
+            this.load.image('platform', 'assets/img/platform.png');
+            this.load.image('star', 'assets/img/star.png');
+            this.load.image('star2', 'assets/img/star2.png');
+            this.load.image('bomb', 'assets/img/bomb.png');
+            this.load.image('bomb2', 'assets/img/bomb2.png');
+            this.load.image('kaktus', 'assets/img/kaktus.png');
+            this.load.spritesheet('firstPlayer', 'assets/img/firstPlayer.png', { frameWidth: 32, frameHeight: 48 });
+            this.load.spritesheet('secondPlayer', 'assets/img/secondPlayer.png', { frameWidth: 32, frameHeight: 48 });
+            this.load.image('button', 'assets/img/replay.png');
+            this.load.audio('coinSound1', 'assets/sound/coin.wav');
+            this.load.audio('coinSound2', 'assets/sound/coin2.wav');
+            this.load.audio('bombSound1', 'assets/sound/bomb.mp3');
+            this.load.audio('bombSound2', 'assets/sound/bomb2.wav');
+            this.load.audio('scareSound', 'assets/sound/scare.wav');
+            this.load.audio('backgroundSound', 'assets/sound/backgroundSound.mp3');
+
+        }
+
+        function create() {
+            //  A simple background for our game
+            this.add.image(400, 300, 'background');
+
+            //  The platforms group contains the platform and the 2 ledges we can jump on
+            platforms = this.physics.add.staticGroup();
+
+            //  Here we create the platform.
+            //  Scale it to fit the width of the game (the original sprite is 400x32 in size)
+            platforms.create(0, 590, 'platform').setScale(2).refreshBody();
+            platforms.create(300, 590, 'platform').setScale(2).refreshBody();
+            platforms.create(600, 590, 'platform').setScale(2).refreshBody();
+            platforms.create(900, 590, 'platform').setScale(2).refreshBody();
+
+            //  Now let's create some ledges
+            platforms.create(50, 360, 'platform');
+            platforms.create(250, 220, 'platform');
+            platforms.create(400, 440, 'platform');
+            platforms.create(500, 320, 'platform');
+            platforms.create(640, 180, 'platform');
+            platforms.create(750, 400, 'platform');
+
+            // Static Tramps
+
+            staticTramps = this.physics.add.staticGroup();
+            staticTramps.create(50, 542, 'kaktus');
+            staticTramps.create(240, 542, 'kaktus');
+            staticTramps.create(460, 400, 'kaktus');
+            staticTramps.create(470, 400, 'kaktus');
+            staticTramps.create(580, 542, 'kaktus');
+
+            // Sound
+            coinSound1 = this.sound.add('coinSound1');
+            coinSound2 = this.sound.add('coinSound2');
+            bombSound1 = this.sound.add('bombSound1');
+            bombSound2 = this.sound.add('bombSound2');
+            backgroundSound = this.sound.add('backgroundSound');
+            scareSound = this.sound.add('scareSound');
+            backgroundSound.volume = 0.1;
+            backgroundSound.play();
+            soundText = this.add.text(200, 16, 'Switch on/off sound', { fontSize: '12px', fill: '#000' });
+
+
+
+            // The first Player and The second Player its settings
+            firstPlayer = this.physics.add.sprite(100, 450, 'firstPlayer');
+            secondPlayer = this.physics.add.sprite(700, 450, 'secondPlayer');
+
+
+
+            //  firstPlayer physics properties. Give the little guy a slight bounce.
+            firstPlayer.setBounce(0.2);
+            firstPlayer.setCollideWorldBounds(true);
+
+            secondPlayer.setBounce(0.2);
+            secondPlayer.setCollideWorldBounds(true);
+
+            //  Our firstPlayer animations, turning, walking left and walking right.
+            this.anims.create({
+                key: 'left',
+                frames: this.anims.generateFrameNumbers('firstPlayer', { start: 0, end: 3 }),
+                frameRate: 10,
+                repeat: -1
+            });
+
+            this.anims.create({
+                key: 'turn',
+                frames: [{ key: 'firstPlayer', frame: 4 }],
+                frameRate: 20
+            });
+
+            this.anims.create({
+                key: 'right',
+                frames: this.anims.generateFrameNumbers('firstPlayer', { start: 5, end: 8 }),
+                frameRate: 10,
+                repeat: -1
+            });
+
+            //  Our secondPlayer animations, turning, walking left and walking right.
+            this.anims.create({
+                key: 'secondPlayerLeft',
+                frames: this.anims.generateFrameNumbers('secondPlayer', { start: 0, end: 3 }),
+                frameRate: 10,
+                repeat: -1
+            });
+
+            this.anims.create({
+                key: 'secondPlayerTurn',
+                frames: [{ key: 'secondPlayer', frame: 4 }],
+                frameRate: 20
+            });
+
+            this.anims.create({
+                key: 'secondPlayerRight',
+                frames: this.anims.generateFrameNumbers('secondPlayer', { start: 5, end: 8 }),
+                frameRate: 10,
+                repeat: -1
+            });
+
+
+            //  Input Events
+            cursors = this.input.keyboard.createCursorKeys();
+
+            secondPlayerCursors = this.input.keyboard.addKeys({
+                secondPlayerUp: Phaser.Input.Keyboard.KeyCodes.W,
+                secondPlayerLeft: Phaser.Input.Keyboard.KeyCodes.A,
+                secondPlayerRight: Phaser.Input.Keyboard.KeyCodes.D
+            });
+
+            this.key_P = this.input.keyboard.addKey(Phaser.Input.Keyboard.KeyCodes.P);
+
+
+            //  Some stars to collect, 12 in total, evenly spaced 70 pixels apart along the x axis
+            stars = this.physics.add.group({
+                key: 'star',
+                repeat: 7,
+                setXY: { x: 12, y: 0, stepX: 95 }
+            });
+
+            stars.children.iterate(function (child) {
+
+                //  Give each star a slightly different bounce
+                child.setBounceY(Phaser.Math.FloatBetween(0.4, 0.8));
+
+            });
+
+            stars2 = this.physics.add.group({
+                key: 'star2',
+                repeat: 7,
+                setXY: { x: 40, y: 0, stepX: 100 }
+            });
+
+            stars2.children.iterate(function (child) {
+
+                //  Give each star a slightly different bounce
+                child.setBounceY(Phaser.Math.FloatBetween(0.4, 0.8));
+
+            });
+
+
+            bombs = this.physics.add.group();
+
+            bombs2 = this.physics.add.group();
+
+            //  The score
+            firstPlayerScoreText = this.add.text(16, 16, 'P1 Score: 0', { fontSize: '18px', fill: '#000' });
+            secondPlayerScoreText = this.add.text(650, 16, 'P2 Score: 0', { fontSize: '18px', fill: '#000' });
+
+            // The Level
+
+            firstPlayerLevelText = this.add.text(16, 56, 'P1 Level: 1', { fontSize: '18px', fill: '#000' });
+            secondPlayerLevelText = this.add.text(650, 56, 'P2 Level: 1', { fontSize: '18px', fill: '#000' });
+
+            // The Health
+
+            firstPlayerHealthText = this.add.text(16, 96, 'P1 Health: 5', { fontSize: '18px', fill: '#000' });
+            secondPlayerHealthText = this.add.text(650, 96, 'P2 Health: 5', { fontSize: '18px', fill: '#000' });
+
+
+            //  Collide the firstPlayer and the stars with the platforms
+            this.physics.add.collider(firstPlayer, platforms);
+            this.physics.add.collider(stars, platforms);
+            this.physics.add.collider(bombs, platforms);
+
+            this.physics.add.collider(secondPlayer, platforms);
+
+            this.physics.add.collider(stars2, platforms);
+            this.physics.add.collider(bombs2, platforms);
+
+            this.physics.add.collider(firstPlayer, secondPlayer);
+
+
+
+            //  Checks to see if the firstPlayer overlaps with any of the stars, if he does call the collectStar function
+            this.physics.add.overlap(firstPlayer, stars, collectStar, null, this);
+
+            this.physics.add.collider(firstPlayer, bombs, hitBomb, null, this);
+
+            //  Checks to see if the secondPlayer overlaps with any of the stars, if he does call the collectStar2 function
+            this.physics.add.overlap(secondPlayer, stars2, collectStar2, null, this);
+
+            this.physics.add.collider(secondPlayer, bombs2, hitBomb2, null, this);
+
+            // Tramps for first player and second player
+
+            this.physics.add.overlap(firstPlayer, staticTramps, lossOfLife, null, this)
+
+            this.physics.add.overlap(secondPlayer, staticTramps, lossOfLife2, null, this)
+
+
+            // Replay
+
+            button = this.add.image(400, 300, 'button');
+            button.visible = false;
+            button.setInteractive();
+            this.input.on('gameobjectdown', () => {
+                this.scene.start();
+            });
+
+        }
+
+
+
+
+        function update() {
+
+            if (this.key_P.isDown) {
+                if (backgroundSound.isPlaying) backgroundSound.pause();
+                else backgroundSound.resume();
+            }
+
+            if (gameOver) {
+                return;
+            }
+            //for first player
+            if (cursors.left.isDown) {
+                firstPlayer.setVelocityX(-160);
+
+                firstPlayer.anims.play('left', true);
+            }
+            else if (cursors.right.isDown) {
+                firstPlayer.setVelocityX(160);
+
+                firstPlayer.anims.play('right', true);
+            }
+            else {
+                firstPlayer.setVelocityX(0);
+
+                firstPlayer.anims.play('turn');
+            }
+
+            if (cursors.up.isDown && firstPlayer.body.touching.down) {
+                firstPlayer.setVelocityY(-330);
+            }
+
+            // for second player
+            if (secondPlayerCursors.secondPlayerLeft.isDown) {
+                secondPlayer.setVelocityX(-160);
+                secondPlayer.anims.play('secondPlayerLeft', true);
+            }
+            else if (secondPlayerCursors.secondPlayerRight.isDown) {
+                secondPlayer.setVelocityX(160);
+                secondPlayer.anims.play('secondPlayerRight', true);
+            } else {
+                secondPlayer.setVelocityX(0);
+                secondPlayer.anims.play('secondPlayerTurn');
+            }
+
+            if (secondPlayerCursors.secondPlayerUp.isDown && secondPlayer.body.touching.down) {
+                secondPlayer.setVelocityY(-330);
+            }
+        }
+
+        function collectStar(firstPlayer, star) {
+            coinSound1.play();
+            star.disableBody(true, true);
+
+            //  Add and update the score
+            firstPlayerScore += 10;
+            firstPlayerScoreText.setText('P1 Score: ' + firstPlayerScore);
+
+            if (firstPlayerScore % 80 === 0) {
+                var value = firstPlayerScore / 80 + 1;
+                firstPlayerLevelText.setText('P1 Level: ' + value);
+            }
+
+            if (stars.countActive(true) === 0) {
+                //  A new batch of stars to collect
+                stars.children.iterate(function (child) {
+
+                    child.enableBody(true, child.x, 0, true, true);
+
+                });
+
+                var x = (firstPlayer.x < 400) ? Phaser.Math.Between(400, 800) : Phaser.Math.Between(0, 400);
+
+                var bomb = bombs.create(x, 16, 'bomb');
+                bomb.setBounce(1);
+                bomb.setCollideWorldBounds(true);
+                bomb.setVelocity(Phaser.Math.Between(-200, 200), 20);
+                bomb.allowGravity = false;
+
+            }
+        }
+
+        function collectStar2(secondPlayer, star2) {
+            coinSound2.play();
+            star2.disableBody(true, true);
+
+            //  Add and update the score
+            secondPlayerScore += 10;
+            secondPlayerScoreText.setText('P2 Score: ' + secondPlayerScore);
+
+            if (secondPlayerScore % 80 === 0) {
+                var value = secondPlayerScore / 80 + 1;
+                secondPlayerLevelText.setText('P2 Level: ' + value);
+            }
+
+            if (stars2.countActive(true) === 0) {
+                //  A new batch of stars to collect
+                stars2.children.iterate(function (child) {
+
+                    child.enableBody(true, child.x, 0, true, true);
+
+                });
+
+
+
+                var x = (secondPlayer.x < 400) ? Phaser.Math.Between(400, 800) : Phaser.Math.Between(0, 400);
+
+                var bomb = bombs2.create(x, 16, 'bomb2');
+                bomb.setBounce(1);
+                bomb.setCollideWorldBounds(true);
+                bomb.setVelocity(Phaser.Math.Between(-200, 200), 20);
+                bomb.allowGravity = false;
+
+            }
+        }
+        function hitBomb(firstPlayer, bomb) {
+            bombSound1.play();
+            var x = (staticTramps.x < firstPlayer.x) ? 30 : -30;
+            firstPlayer.x += x;
+
+            firstPlayerHealth--;
+            firstPlayerHealthText.setText('P1 Health: ' + firstPlayerHealth);
+
+            if (firstPlayerHealth === 0) {
+
+                button.visible = true;
+
+                this.physics.pause();
+
+                firstPlayer.setTint(0xff0000);
+
+                firstPlayer.anims.play('turn');
+
+                gameOver = true;
+
+            }
+
+        }
+
+        function hitBomb2(secondPlayer, bomb2) {
+            bombSound2.play();
+            var x = (staticTramps.x < secondPlayer.x) ? 30 : -30;
+            secondPlayer.x += x;
+
+            secondPlayerHealth--;
+            secondPlayerHealthText.setText('P2 Health: ' + secondPlayerHealth);
+
+            if (secondPlayerHealth === 0) {
+
+                button.visible = true;
+                this.physics.pause();
+
+                secondPlayer.setTint(0x00ffff);
+
+                secondPlayer.anims.play('turn');
+
+                gameOver = true;
+
+            }
+
+        }
+
+        function lossOfLife(firstPlayer, staticTramps) {
+            scareSound.play();
+            var x = (staticTramps.x < firstPlayer.x) ? 30 : -30;
+            firstPlayer.x += x;
+            firstPlayerHealth--;
+            firstPlayerHealthText.setText('P1 Health: ' + firstPlayerHealth);
+
+            if (firstPlayerHealth === 0) {
+
+                button.visible = true;
+                this.physics.pause();
+
+                firstPlayer.setTint(0xff0000);
+
+                firstPlayer.anims.play('turn');
+
+                gameOver = true;
+            }
+        }
+
+        function lossOfLife2(secondPlayer, staticTramps) {
+            scareSound.play();
+            var x = (staticTramps.x < secondPlayer.x) ? 30 : -30;
+            secondPlayer.x += x;
+            secondPlayerHealth--;
+            secondPlayerHealthText.setText('P1 Health: ' + secondPlayerHealth);
+
+            if (secondPlayerHealth === 0) {
+
+                button.visible = true;
+                this.physics.pause();
+
+                secondPlayer.setTint(0x00ffff);
+
+                secondPlayer.anims.play('turn');
+
+                gameOver = true;
+            }
+        }
+
+
+
+    </script>
+
+</body>
+
+</html>
